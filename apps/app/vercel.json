@@ -1,11 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd ../.. && pnpm turbo build --filter=web",
+  "buildCommand": "cd ../.. && pnpm turbo build --filter=app",
   "ignoreCommand": "cd ../.. && pnpm turbo-ignore",
   "installCommand": "cd ../.. && pnpm install",
   "framework": "nextjs",
   "relatedProjects": [
-    "${VERCEL_APP_PROJECT_ID}",
+    "${VERCEL_WEB_PROJECT_ID}",
     "${VERCEL_API_PROJECT_ID}"
   ],
   "headers": [
@@ -27,4 +27,4 @@
       ]
     }
   ]
-}
+} 

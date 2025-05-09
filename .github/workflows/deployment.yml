@@ -1,0 +1,214 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  deploy-app:
+    name: Deploy App
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'pull_request' && 'Development' || github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_APP_PROJECT_ID: ${{ secrets.VERCEL_APP_PROJECT_ID }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+      
+      - name: Cache pnpm store
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Install Vercel CLI
+        run: pnpm install -g vercel
+      
+      - name: Pull Vercel Environment Variables for App
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/app
+      
+      - name: Build App Project
+        run: pnpm turbo build --filter=app
+      
+      - name: Deploy App to Vercel
+        id: deploy
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "Deploying PR preview for app..."
+            DEPLOYMENT_URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/app)
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "Deploying to production..."
+            DEPLOYMENT_URL=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/app)
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          else
+            echo "Deploying to staging..."
+            DEPLOYMENT_URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/app)
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            🚀 App deployed successfully!
+            
+            ✅ Preview: ${{ steps.deploy.outputs.deployment_url }}
+          comment_tag: deployment-app
+
+  deploy-web:
+    name: Deploy Web
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'pull_request' && 'Development' || github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_WEB_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+      
+      - name: Cache pnpm store
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Install Vercel CLI
+        run: pnpm install -g vercel
+      
+      - name: Pull Vercel Environment Variables for Web
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/web
+      
+      - name: Build Web Project
+        run: pnpm turbo build --filter=web
+      
+      - name: Deploy Web to Vercel
+        id: deploy
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "Deploying PR preview for web..."
+            DEPLOYMENT_URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/web)
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "Deploying to production..."
+            DEPLOYMENT_URL=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/web)
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          else
+            echo "Deploying to staging..."
+            DEPLOYMENT_URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/web)
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            🚀 Web deployed successfully!
+            
+            ✅ Preview: ${{ steps.deploy.outputs.deployment_url }}
+          comment_tag: deployment-web
+
+  deploy-api:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'pull_request' && 'Development' || github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_API_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+      
+      - name: Cache pnpm store
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Install Vercel CLI
+        run: pnpm install -g vercel
+      
+      - name: Pull Vercel Environment Variables for API
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/api
+      
+      - name: Build API Project
+        run: pnpm turbo build --filter=api
+      
+      - name: Deploy API to Vercel
+        id: deploy
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "Deploying PR preview for API..."
+            DEPLOYMENT_URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/api)
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "Deploying to production..."
+            DEPLOYMENT_URL=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/api)
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          else
+            echo "Deploying to staging..."
+            DEPLOYMENT_URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/api)
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            🚀 API deployed successfully!
+            
+            ✅ Preview: ${{ steps.deploy.outputs.deployment_url }}
+          comment_tag: deployment-api 

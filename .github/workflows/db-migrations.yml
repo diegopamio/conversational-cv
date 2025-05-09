@@ -1,0 +1,79 @@
+name: Database Migrations
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/database/prisma/schema.prisma'
+      - 'packages/database/prisma/migrations/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run migrations on'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - production
+
+jobs:
+  migrate:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'development' }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      # Set DATABASE_URL based on environment
+      - name: Set Database URL
+        run: |
+          if [[ "${{ github.event.inputs.environment || 'development' }}" == "production" ]]; then
+            echo "Using production database"
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL_PRODUCTION }}" >> $GITHUB_ENV
+          else
+            echo "Using development database"
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL_DEVELOPMENT }}" >> $GITHUB_ENV
+          fi
+      
+      # Generate Prisma client first
+      - name: Generate Prisma Client
+        run: cd packages/database && pnpm prisma generate
+      
+      # Run migrations
+      - name: Run migrations
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          echo "Running migrations on environment: ${{ github.event.inputs.environment || 'development' }}"
+          cd packages/database && pnpm prisma migrate deploy
+      
+      # Verify migration was successful by checking the schema
+      - name: Verify migration
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          cd packages/database && pnpm prisma db pull --print
+          
+      # Notify of successful migration
+      - name: Send Notification
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_TITLE: "Database Migration Completed"
+          SLACK_MESSAGE: "Database migration completed successfully on ${{ github.event.inputs.environment || 'development' }} environment"
+          SLACK_COLOR: good
+        continue-on-error: true 
