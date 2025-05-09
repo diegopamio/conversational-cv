@@ -120,6 +120,10 @@ Our CI/CD pipeline follows these steps:
 - `deployment.yml`: Deploys applications to Vercel
 - `db-migrations.yml`: Handles database schema changes
 
+## Preview Deployments
+
+This project is set up with automatic preview deployments on Vercel. When you create a pull request, GitHub Actions will automatically deploy the changes to a preview environment so you can test them before merging.
+
 ## Getting Started
 
 ### Prerequisites
